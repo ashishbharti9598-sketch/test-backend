@@ -5,7 +5,7 @@ const cors = require("cors");
 const db = require("./config/db");
 
 const app = express();
-
+app.use(express.json({ limit: "7mb" }));
 // CORS configuration
 app.use(cors({
   origin: [
