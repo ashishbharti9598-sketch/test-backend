@@ -57,6 +57,215 @@ app.get("/users", async (req, res) => {
   }
 });
 
+// ======================================
+// SERVICES CRUD API
+// ======================================
+
+// GET all services
+app.get("/services", async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        id,
+        title,
+        slug,
+        short_desc,
+        full_desc,
+        status,
+        display_order AS "order",
+        image,
+        created_at,
+        updated_at
+      FROM services
+      ORDER BY display_order ASC, id DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Fetch services:", error.message);
+    res.status(500).json({ error: "Failed to fetch services" });
+  }
+});
+
+// GET one service
+app.get("/services/:id", async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT
+        id, title, slug, short_desc, full_desc,
+        status, display_order AS "order", image,
+        created_at, updated_at
+       FROM services
+       WHERE id = $1`,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Get service:", error.message);
+    res.status(500).json({ error: "Failed to fetch service" });
+  }
+});
+
+// POST - Create service
+app.post("/services", async (req, res) => {
+  try {
+    const {
+      title,
+      slug,
+      short_desc = "",
+      full_desc = "",
+      status = "Active",
+      order = 0,
+      image = ""
+    } = req.body;
+
+    if (!title?.trim() || !slug?.trim()) {
+      return res.status(400).json({
+        error: "Title and slug are required"
+      });
+    }
+
+    if (!["Active", "Inactive"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const result = await db.query(
+      `INSERT INTO services
+        (title, slug, short_desc, full_desc, status, display_order, image)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING
+        id, title, slug, short_desc, full_desc,
+        status, display_order AS "order", image,
+        created_at, updated_at`,
+      [
+        title.trim(),
+        slug.trim(),
+        short_desc,
+        full_desc,
+        status,
+        Number(order) || 0,
+        image
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Service created successfully",
+      service: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Create service:", error.message);
+
+    if (error.code === "23505") {
+      return res.status(409).json({
+        error: "This slug already exists"
+      });
+    }
+
+    res.status(500).json({ error: "Failed to create service" });
+  }
+});
+
+// PUT - Update service
+app.put("/services/:id", async (req, res) => {
+  try {
+    const {
+      title,
+      slug,
+      short_desc = "",
+      full_desc = "",
+      status,
+      order = 0,
+      image = ""
+    } = req.body;
+
+    if (!title?.trim() || !slug?.trim()) {
+      return res.status(400).json({
+        error: "Title and slug are required"
+      });
+    }
+
+    if (!["Active", "Inactive"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const result = await db.query(
+      `UPDATE services
+       SET
+         title = $1,
+         slug = $2,
+         short_desc = $3,
+         full_desc = $4,
+         status = $5,
+         display_order = $6,
+         image = $7,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $8
+       RETURNING
+         id, title, slug, short_desc, full_desc,
+         status, display_order AS "order", image,
+         created_at, updated_at`,
+      [
+        title.trim(),
+        slug.trim(),
+        short_desc,
+        full_desc,
+        status,
+        Number(order) || 0,
+        image,
+        req.params.id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Service updated successfully",
+      service: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Update service:", error.message);
+
+    if (error.code === "23505") {
+      return res.status(409).json({
+        error: "This slug already exists"
+      });
+    }
+
+    res.status(500).json({ error: "Failed to update service" });
+  }
+});
+
+// DELETE - Remove service
+app.delete("/services/:id", async (req, res) => {
+  try {
+    const result = await db.query(
+      "DELETE FROM services WHERE id = $1 RETURNING id",
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Service deleted successfully"
+    });
+  } catch (error) {
+    console.error("Delete service:", error.message);
+    res.status(500).json({ error: "Failed to delete service" });
+  }
+});
+
 // Get messages
 app.get("/messages", async (req, res) => {
   try {
