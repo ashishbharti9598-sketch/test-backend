@@ -104,6 +104,130 @@ app.get("/gallery_images/:id", async (req, res) => {
   }
 });
 
+// GET all gallery images
+app.get("/gallery_images", async (req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT * FROM gallery_images ORDER BY id DESC"
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Fetch gallery error:", error.message);
+    res.status(500).json({ error: "Failed to fetch gallery images" });
+  }
+});
+
+// GET single gallery image
+app.get("/gallery_images/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      "SELECT * FROM gallery_images WHERE id = $1",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Get image error:", error.message);
+    res.status(500).json({ error: "Failed to fetch image" });
+  }
+});
+
+// POST - Add new gallery image
+app.post("/gallery_images", async (req, res) => {
+  try {
+    const { title, address } = req.body;
+
+    if (!address || typeof address !== "string" || !address.trim()) {
+      return res.status(400).json({
+        error: "Image address is required"
+      });
+    }
+
+    const result = await db.query(
+      `INSERT INTO gallery_images (title, address)
+       VALUES ($1, $2)
+       RETURNING *`,
+      [title?.trim() || "Untitled", address.trim()]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Image added successfully",
+      image: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Add image error:", error.message);
+    res.status(500).json({ error: "Failed to add image" });
+  }
+});
+
+// PUT - Update gallery image
+app.put("/gallery_images/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, address } = req.body;
+
+    if (!address || typeof address !== "string" || !address.trim()) {
+      return res.status(400).json({
+        error: "Image address is required"
+      });
+    }
+
+    const result = await db.query(
+      `UPDATE gallery_images
+       SET title = $1, address = $2
+       WHERE id = $3
+       RETURNING *`,
+      [title?.trim() || "Untitled", address.trim(), id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Image updated successfully",
+      image: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Update image error:", error.message);
+    res.status(500).json({ error: "Failed to update image" });
+  }
+});
+
+// DELETE - Delete gallery image
+app.delete("/gallery_images/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      "DELETE FROM gallery_images WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Image deleted successfully",
+      image: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Delete image error:", error.message);
+    res.status(500).json({ error: "Failed to delete image" });
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 
